@@ -67,6 +67,10 @@ def create_manuscript(request):
     try:
         shutil.copytree(ROOTSTOCK_TEMPLATE_DIR, target_path, symlinks=True)
 
+        git_dir_path = os.path.join(target_path, '.git')
+        if os.path.isdir(git_dir_path):
+            shutil.rmtree(git_dir_path)
+
         run_command(['git', 'init'], cwd=target_path)
         run_command(['git', 'add', '.'], cwd=target_path)
         run_command(['git', 'commit', '-m', f'Creación inicial del manuscrito {repo_name}'], cwd=target_path)
