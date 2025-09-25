@@ -5,12 +5,12 @@ Primero, clona la plantilla, la cual debe estar en el mismo lugar que `app.py`.
 git clone https://github.com/manubot/rootstock.git rootstock_template
 ```
 
-El archivo environment.yml de la plantilla contiene todas las dependencias necesarias. 
+El archivo `environment.yml` de la plantilla contiene todas las dependencias necesarias. 
 ```Bash
-# Crear el entorno
+# Crea el entorno
 conda env create --file rootstock_template/build/environment.yml
 
-# Activar el entorno
+# Y activalo
 conda activate manubot
 ```
 Una vez hecho lo anterior, puedes iniciar el servidor con `python app.py` y hacer lo siguiente.
