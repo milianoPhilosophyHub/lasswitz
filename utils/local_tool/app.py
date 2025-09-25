@@ -44,7 +44,7 @@ def run_command(command_list, cwd, env_vars=None):
         raise
 
 @view_config(route_name='manuscript_collection', request_method='GET', renderer='json')
-def list_manuscripts(request):
+def show_manuscripts(request):
     """Muestra todos los manuscritos disponibles."""
     try:
         manuscripts = [d for d in os.listdir(MANUSCRIPTS_BASE_DIR) if os.path.isdir(os.path.join(MANUSCRIPTS_BASE_DIR, d))]
@@ -57,7 +57,7 @@ def create_manuscript(request):
     """Crea un nuevo manuscrito localmente desde la plantilla."""
     repo_name = request.json_body.get('name')
     if not repo_name or not re.match(r'^[a-zA-Z0-9_.-]+$', repo_name):
-        return json_response({'error': 'Parametro "name" faltante o con formato invalido.'}, status=400)
+        return json_response({'error': 'Parámetro "name" faltante o con formato inválido.'}, status=400)
 
     target_path = os.path.join(MANUSCRIPTS_BASE_DIR, repo_name)
     if os.path.exists(target_path):
@@ -67,26 +67,9 @@ def create_manuscript(request):
     try:
         shutil.copytree(ROOTSTOCK_TEMPLATE_DIR, target_path, symlinks=True)
 
-        readme_path = os.path.join(target_path, "README.md")
-        if os.path.exists(readme_path):
-            with open(readme_path, 'r+', encoding='utf-8') as f:
-                content = f.read().replace('manubot/rootstock', f'local/{repo_name}')
-                f.seek(0)
-                f.write(content)
-                f.truncate()
-        
-        metadata_path = os.path.join(target_path, 'content', 'metadata.yaml')
-        if os.path.exists(metadata_path):
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                metadata = yaml.safe_load(f)
-            metadata['title'] = f"Manuscrito: {repo_name}"
-            metadata['authors'] = []
-            with open(metadata_path, 'w', encoding='utf-8') as f:
-                yaml.dump(metadata, f, sort_keys=False, allow_unicode=True)
-
         run_command(['git', 'init'], cwd=target_path)
         run_command(['git', 'add', '.'], cwd=target_path)
-        run_command(['git', 'commit', '-m', f'Creacion del manuscrito {repo_name}'], cwd=target_path)
+        run_command(['git', 'commit', '-m', f'Creación inicial del manuscrito {repo_name}'], cwd=target_path)
 
         return {'status': 'success', 'message': f'Manuscrito {repo_name} creado exitosamente.'}
     except Exception as e:
