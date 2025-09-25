@@ -3,7 +3,7 @@ import logging
 from waitress import serve
 from dotenv import load_dotenv
 
-from manuscript_tool import main
+from manuscript_app import main
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
