@@ -16,7 +16,7 @@ import logging
 import subprocess
 
 
-# --- Configuración de Manubot y Directorios ---
+# --- Configuración de Manubot ---
 try:
     VIEWS_DIR = os.path.dirname(os.path.abspath(__file__))
     LASSWITZ_DIR = os.path.dirname(VIEWS_DIR)
