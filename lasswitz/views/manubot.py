@@ -10,6 +10,47 @@ import os
 import bibtexparser
 from pyramid.renderers import render_to_response
 
+import re
+import shutil
+import logging
+import subprocess
+
+
+# --- Configuración de Manubot y Directorios ---
+try:
+    VIEWS_DIR = os.path.dirname(os.path.abspath(__file__))
+    LASSWITZ_DIR = os.path.dirname(VIEWS_DIR)
+    PROJECT_ROOT = os.path.dirname(LASSWITZ_DIR)
+except NameError:
+    PROJECT_ROOT = os.getcwd() 
+    logging.warning(f"__file__ no definido. Usando PROJECT_ROOT={PROJECT_ROOT}")
+
+MANUSCRIPTS_BASE_DIR = os.path.join(PROJECT_ROOT, 'manuscripts')
+ROOTSTOCK_TEMPLATE_DIR = os.path.join(PROJECT_ROOT, 'rootstock_template')
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def run_command(command_list, cwd, env_vars=None):
+    """Ejecuta un comando de terminal de forma segura."""
+    try:
+        env = os.environ.copy()
+        if env_vars:
+            env.update(env_vars)
+
+        result = subprocess.run(
+            command_list,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=600,
+            env=env
+        )
+        return result
+    except subprocess.CalledProcessError as e:
+        logging.error(f"Error al ejecutar '{' '.join(e.cmd)}':\nSTDOUT: {e.stdout}\nSTDERR: {e.stderr}")
+        raise
+
 
 @view_config(route_name='search', renderer='lasswitz:templates/search_template.jinja2')
 def search_view(request):
@@ -131,11 +172,63 @@ def blank_view(request):
     try:
         query = request.dbsession.query(models.Manuscript)
         blank = query.filter(models.Manuscript.title == '').first()
+        
         if not blank:
-            blank = models.Manuscript(id=uuid.uuid4(), title="", abstract="", body="", revision=0, tag="blank", keywords="", date=datetime.datetime.now(), language="")
+            # 1. Crear nuevo objeto Manuscript en la BD
+            new_id = uuid.uuid4()
+            blank = models.Manuscript(
+                id=new_id, 
+                title="", 
+                abstract="", 
+                body="", 
+                revision=0, 
+                tag="blank", 
+                keywords="", 
+                date_created=datetime.datetime.now(), 
+                language=""
+            )
             request.dbsession.add(blank)
+            
+            # 2. Crear el directorio Manubot correspondiente
+            repo_name = str(new_id)
+            target_path = os.path.join(MANUSCRIPTS_BASE_DIR, repo_name)
+            
+            # Asegurarse que el directorio base de manuscritos exista
+            os.makedirs(MANUSCRIPTS_BASE_DIR, exist_ok=True)
+            
+            # Verificar si la plantilla existe
+            if not os.path.isdir(ROOTSTOCK_TEMPLATE_DIR):
+                logging.error(f"Error Crítico! La carpeta de la plantilla no se encuentra en: {ROOTSTOCK_TEMPLATE_DIR}")
+            
+            elif os.path.exists(target_path):
+                logging.warning(f'El directorio {target_path} ya existe para el manuscrito {repo_name}. Omitiendo creación de directorio.')
+            
+            else:
+                logging.info(f"Creando nuevo manuscrito '{repo_name}' en {target_path}")
+                try:
+                    # Copiar la plantilla
+                    shutil.copytree(ROOTSTOCK_TEMPLATE_DIR, target_path, symlinks=True)
+
+                    # Eliminar el .git de la plantilla
+                    git_dir_path = os.path.join(target_path, '.git')
+                    if os.path.isdir(git_dir_path):
+                        shutil.rmtree(git_dir_path)
+
+                    # Inicializar nuevo repositorio git
+                    run_command(['git', 'init'], cwd=target_path)
+                    run_command(['git', 'add', '.'], cwd=target_path)
+                    run_command(['git', 'commit', '-m', f'Creación inicial del manuscrito {repo_name}'], cwd=target_path)
+                    
+                    logging.info(f"Manuscrito {repo_name} creado exitosamente.")
+
+                except Exception as e:
+                    logging.error(f"Error creando directorio de manuscrito {repo_name}: {e}", exc_info=True)
+                    if os.path.exists(target_path):
+                        shutil.rmtree(target_path)
+            
     except SQLAlchemyError:
         return Response(db_err_msg, content_type='text/plain', status=500)
+    
     return {'manuscript': blank, 'project': 'Lasswitz'}
 
 

@@ -22,3 +22,5 @@ test
 *.sqlite
 /.idea/
 .env
+/manuscripts/
+
